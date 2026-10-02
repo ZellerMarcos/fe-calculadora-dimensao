@@ -116,8 +116,7 @@ export const calculationService: CalculationService = {
     return materials.map((material) => ({ value: material.n, label: material.nome }))
   },
 
-  async calculate(input) {
-  async calculate(input, mode) {
+  async calculate(input, mode = 'verificar') {
     const path = mode === 'dimensionar' ? '/calhas/dimensionar' : '/calhas/verificar'
     const response = await request(path, jsonPost(toRequest(input)))
     const result = await response.json() as ApiResult
