@@ -4,6 +4,8 @@ Frontend React para verificação hidráulica preliminar de calhas conforme a AB
 
 ## Execução
 
+Inicie a API primeiro, seguindo as instruções de `../be-calculadora-dimensao/README.md`.
+
 ```bash
 npm install
 npm run dev
@@ -20,14 +22,14 @@ npm run build
 
 ## Escopo atual
 
-- postos pluviométricos e períodos de retorno da Tabela 5;
+- postos pluviométricos e intensidades carregados da API (Tabela 5 versionada no backend);
 - alternativa simplificada de 150 mm/h para áreas elegíveis;
-- área de contribuição de cobertura inclinada;
-- perfis retangular, semicircular, trapezoidal e triangular;
-- capacidade pela fórmula de Manning-Strickler;
-- rugosidades da Tabela 2 e fatores de curva da Tabela 1;
-- memorial de cálculo exportado em PDF.
+- área para superfícies planas/inclinadas e saída na extremidade/central;
+- perfis retangular, semicircular e trapezoidal;
+- verificação calculada exclusivamente pela API FastAPI;
+- rugosidades e materiais carregados da API;
+- memorial JSON ou DOCX, recalculado e gerado no backend.
 
-Os cálculos estão isolados em `src/domain` e são acessados por `src/services/calculation-service.ts`. Esse contrato deverá ser substituído pela chamada à API FastAPI sem alterar os componentes da interface.
+Durante o desenvolvimento, o Vite encaminha as chamadas `/api` para `http://127.0.0.1:8000`.
 
 O dimensionamento de condutores verticais por ábaco e a persistência de projetos não fazem parte desta etapa. Os resultados devem ser validados por profissional habilitado.

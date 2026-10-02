@@ -1,5 +1,5 @@
 export type ReturnPeriod = 1 | 5 | 25
-export type ProfileShape = 'rectangular' | 'semicircular' | 'trapezoidal' | 'triangular'
+export type ProfileShape = 'rectangular' | 'semicircular' | 'trapezoidal'
 export type CurveCondition =
   | 'none'
   | 'straight-under-2m'
@@ -24,18 +24,61 @@ export interface CalculationInput {
   returnPeriod: ReturnPeriod
   intensity: number
   rainfallSource: 'station' | 'simplified' | 'manual'
+  manualJustification: string
   roofWidth: number
   roofRise: number
+  roofSurface: 'horizontal' | 'inclined'
   gutterLength: number
-  outlets: number
+  outletType: 'extremidade' | 'central'
+  extensionSideA: number
+  extensionSideB: number
   profile: ProfileShape
   bottomWidthMm: number
   topWidthMm: number
   usefulDepthMm: number
   freeboardMm: number
+  constructiveStepMm: number
   slopePercent: number
   roughness: number
   curveCondition: CurveCondition
+  gutterType: 'beiral_platibanda' | 'agua_furtada'
+  project: {
+    nome: string
+    cliente: string
+    responsavel: string
+    data: string
+  }
+}
+
+export interface CalculationStep {
+  ordem: number
+  titulo: string
+  referenciaNorma: string
+  formulaLatex: string
+  formulaTexto: string
+  substituicao: string
+  resultado: number | string
+  unidade: string
+}
+
+export interface CalculationAlert {
+  codigo: string
+  nivel: 'erro' | 'aviso' | 'info'
+  mensagem: string
+  referenciaNorma: string
+}
+
+
+export interface DimensioningResult {
+  status: 'ATENDE' | 'NAO_ATENDE'
+  secao: ProfileShape
+  larguraFundoMm: number | null
+  taludeZ: number | null
+  diametroMm: number | null
+  laminaMm: number
+  passoConstrutivoMm: number
+  capacidadeLmin: number
+  mensagem: string | null
 }
 
 export interface CalculationResult {
@@ -53,4 +96,7 @@ export interface CalculationResult {
   approved: boolean
   totalHeightMm: number
   warnings: string[]
+  steps: CalculationStep[]
+  alerts: CalculationAlert[]
+  dimensioning?: DimensioningResult
 }

@@ -6,6 +6,7 @@ interface NumberFieldProps {
   min?: number
   max?: number
   step?: number
+  readOnly?: boolean
   onChange: (value: number) => void
 }
 
@@ -17,6 +18,7 @@ export function NumberField({
   min,
   max,
   step = 0.1,
+  readOnly = false,
   onChange,
 }: NumberFieldProps) {
   return (
@@ -30,6 +32,7 @@ export function NumberField({
           min={min}
           max={max}
           step={step}
+          readOnly={readOnly}
           onChange={(event) => onChange(Number(event.target.value))}
         />
         <span className="unit">{unit}</span>
