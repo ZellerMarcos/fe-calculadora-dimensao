@@ -7,6 +7,7 @@ interface NumberFieldProps {
   max?: number
   step?: number
   readOnly?: boolean
+  emptyWhenZero?: boolean
   onChange: (value: number) => void
 }
 
@@ -19,6 +20,7 @@ export function NumberField({
   max,
   step = 0.1,
   readOnly = false,
+  emptyWhenZero = false,
   onChange,
 }: NumberFieldProps) {
   return (
@@ -28,7 +30,7 @@ export function NumberField({
         <input
           id={id}
           type="number"
-          value={value}
+          value={emptyWhenZero && value === 0 ? '' : value}
           min={min}
           max={max}
           step={step}

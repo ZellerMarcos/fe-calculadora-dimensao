@@ -105,6 +105,14 @@ export default function App() {
   const [isExporting, setIsExporting] = useState(false)
   const [isCalculating, setIsCalculating] = useState(true)
   const [hasResult, setHasResult] = useState(false)
+  const [manualCalculationRequest, setManualCalculationRequest] = useState<{
+    input: CalculationInput
+    mode: 'verificar' | 'dimensionar'
+  } | null>(null)
+  const [manualResultSnapshot, setManualResultSnapshot] = useState<{
+    input: CalculationInput
+    mode: 'verificar' | 'dimensionar'
+  } | null>(null)
   const [exportError, setExportError] = useState('')
   const [calculationError, setCalculationError] = useState('')
   const [dataError, setDataError] = useState('')
@@ -127,12 +135,21 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    const manualRequestMatchesCurrentInput =
+      input.rainfallSource !== 'manual' ||
+      (manualCalculationRequest?.input === input && manualCalculationRequest.mode === mode)
+    if (!manualRequestMatchesCurrentInput) {
+      return
+    }
+
     let current = true
-    setIsCalculating(true)
     calculationService.calculate(input, mode).then((nextResult) => {
       if (current) {
         setResult(nextResult)
         setHasResult(true)
+        if (input.rainfallSource === 'manual') {
+          setManualResultSnapshot({ input, mode })
+        }
         setCalculationError('')
       }
     }).catch((error: unknown) => {
@@ -143,19 +160,29 @@ export default function App() {
     return () => {
       current = false
     }
-  }, [input, mode])
+  }, [input, mode, manualCalculationRequest])
 
   const selectedStation = rainfallStations.find((station) => station.id === input.stationId)
   const selectedRainfall = selectedStation?.values[input.returnPeriod]
   const actualReturnPeriod = selectedRainfall?.actualReturnPeriod
+  const hasCurrentResult =
+    hasResult &&
+    (input.rainfallSource !== 'manual' ||
+      (manualResultSnapshot?.input === input && manualResultSnapshot.mode === mode))
+  const displayedResult = hasCurrentResult ? result : emptyResult
+
+  const setCalculationInput = (updateInput: (current: CalculationInput) => CalculationInput) => {
+    setIsCalculating(input.rainfallSource !== 'manual')
+    setInput(updateInput)
+  }
 
   const update = <Key extends keyof CalculationInput>(key: Key, value: CalculationInput[Key]) => {
-    setInput((current) => ({ ...current, [key]: value }))
+    setCalculationInput((current) => ({ ...current, [key]: value }))
   }
 
   const selectPeriod = (period: ReturnPeriod) => {
     const rainfall = selectedStation?.values[period]
-    setInput((current) => ({
+    setCalculationInput((current) => ({
       ...current,
       returnPeriod: period,
       intensity:
@@ -168,6 +195,7 @@ export default function App() {
   const selectStation = (stationId: number) => {
     const station = rainfallStations.find((item) => item.id === stationId)
     const rainfall = station?.values[input.returnPeriod]
+    setIsCalculating(true)
     setInput((current) => ({
       ...current,
       stationId,
@@ -178,11 +206,14 @@ export default function App() {
 
   const selectRainfallSource = (source: CalculationInput['rainfallSource']) => {
     const stationIntensity = selectedStation?.values[input.returnPeriod].intensity
+    setIsCalculating(source !== 'manual')
     setInput((current) => ({
       ...current,
       rainfallSource: source,
       intensity:
-        source === 'simplified'
+        source === 'manual'
+          ? 0
+          : source === 'simplified'
           ? 150
           : source === 'station' && stationIntensity
             ? stationIntensity
@@ -224,10 +255,10 @@ export default function App() {
           >
             {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
-          <button className="icon-button" type="button" disabled={isExporting || !hasResult} onClick={() => exportMemorial('json')} title="Baixar memorial JSON" aria-label="Baixar memorial JSON">
+          <button className="icon-button" type="button" disabled={isExporting || !hasCurrentResult} onClick={() => exportMemorial('json')} title="Baixar memorial JSON" aria-label="Baixar memorial JSON">
             <FileJson2 size={18} />
           </button>
-          <button className="primary-button" type="button" disabled={isExporting || !hasResult} onClick={() => exportMemorial('docx')} title="Gerar memorial detalhado em DOCX">
+          <button className="primary-button" type="button" disabled={isExporting || !hasCurrentResult} onClick={() => exportMemorial('docx')} title="Gerar memorial detalhado em DOCX">
             {isExporting ? <Download size={17} /> : <FileText size={17} />}<span>{isExporting ? 'Gerando…' : 'Memorial DOCX'}</span>
           </button>
         </div>
@@ -289,19 +320,29 @@ export default function App() {
                 ))}
               </div>
 
-              <NumberField id="intensity" label="Intensidade pluviométrica" unit="mm/h" value={input.intensity} min={1} step={1} readOnly={input.rainfallSource !== 'manual'} onChange={(next) => update('intensity', next)} />
+              <NumberField id="intensity" label="Intensidade pluviométrica" unit="mm/h" value={input.intensity} min={1} max={1000} step={1} readOnly={input.rainfallSource !== 'manual'} emptyWhenZero={input.rainfallSource === 'manual'} onChange={(next) => update('intensity', next)} />
+              {input.rainfallSource === 'manual' && input.intensity > 0 && input.intensity <= 1000 && (
+                <div className="manual-calc-action">
+                  <button
+                    className="primary-button"
+                    type="button"
+                    disabled={isCalculating}
+                    onClick={() => {
+                      setIsCalculating(true)
+                      setCalculationError('')
+                      setManualCalculationRequest({ input, mode })
+                    }}
+                  >
+                    Calcular
+                  </button>
+                </div>
+              )}
 
               {input.rainfallSource === 'station' && selectedRainfall?.intensity === null && (
                 <div className="inline-alert danger"><X size={16} /> Não há valor para este período. Informe uma intensidade local.</div>
               )}
               {actualReturnPeriod && (
                 <div className="inline-alert"><AlertTriangle size={16} /> O valor publicado corresponde a T = {actualReturnPeriod} anos, conforme nota da Tabela 5.</div>
-              )}
-              {input.rainfallSource === 'manual' && (
-                <label className="field" htmlFor="manual-justification">
-                  <span>Justificativa da intensidade informada</span>
-                  <input id="manual-justification" type="text" maxLength={300} value={input.manualJustification} onChange={(event) => update('manualJustification', event.target.value)} />
-                </label>
               )}
             </section>
 
@@ -339,7 +380,7 @@ export default function App() {
                   </>
                 )}
               </div>
-              <div className="formula-line"><span>{result.steps[1]?.formulaTexto ?? 'Área conforme geometria informada'}</span><strong>{format(result.effectiveArea)} m²</strong></div>
+              <div className="formula-line"><span>{displayedResult.steps[1]?.formulaTexto ?? 'Área conforme geometria informada'}</span><strong>{format(displayedResult.effectiveArea)} m²</strong></div>
             </section>
 
             <section className="work-section" id="step-3">
@@ -350,13 +391,19 @@ export default function App() {
               </header>
 
               <div className="segmented-control two" aria-label="Modo de cálculo">
-                <button type="button" className={mode === 'verificar' ? 'selected' : ''} onClick={() => setMode('verificar')}>Verificar dimensões</button>
-                <button type="button" className={mode === 'dimensionar' ? 'selected' : ''} onClick={() => setMode('dimensionar')}>Dimensionar mínimo</button>
+                <button type="button" className={mode === 'verificar' ? 'selected' : ''} onClick={() => {
+                  setIsCalculating(input.rainfallSource !== 'manual')
+                  setMode('verificar')
+                }}>Verificar dimensões</button>
+                <button type="button" className={mode === 'dimensionar' ? 'selected' : ''} onClick={() => {
+                  setIsCalculating(input.rainfallSource !== 'manual')
+                  setMode('dimensionar')
+                }}>Dimensionar mínimo</button>
               </div>
 
               <div className="shape-picker">
                 {(Object.keys(profileLabels) as ProfileShape[]).map((shape) => (
-                  <button type="button" className={input.profile === shape ? 'selected' : ''} key={shape} onClick={() => setInput((current) => ({
+                  <button type="button" className={input.profile === shape ? 'selected' : ''} key={shape} onClick={() => setCalculationInput((current) => ({
                     ...current,
                     profile: shape,
                     usefulDepthMm: shape === 'semicircular' ? current.bottomWidthMm / 2 : current.usefulDepthMm,
@@ -367,7 +414,7 @@ export default function App() {
               </div>
 
               <div className="field-grid">
-                <NumberField id="bottom-width" label={input.profile === 'semicircular' ? 'Diâmetro interno' : 'Largura da base'} unit="mm" value={input.bottomWidthMm} min={1} step={5} onChange={(next) => setInput((current) => ({
+                <NumberField id="bottom-width" label={input.profile === 'semicircular' ? 'Diâmetro interno' : 'Largura da base'} unit="mm" value={input.bottomWidthMm} min={1} step={5} onChange={(next) => setCalculationInput((current) => ({
                   ...current,
                   bottomWidthMm: next,
                   ...(current.profile === 'semicircular' ? { usefulDepthMm: next / 2, topWidthMm: next } : {}),
@@ -416,56 +463,56 @@ export default function App() {
               <details className="project-details">
                 <summary>Identificação do projeto para o memorial</summary>
                 <div className="field-grid">
-                  <label className="field" htmlFor="project-name"><span>Projeto</span><input id="project-name" maxLength={120} value={input.project.nome} onChange={(event) => setInput((current) => ({ ...current, project: { ...current.project, nome: event.target.value } }))} /></label>
-                  <label className="field" htmlFor="project-client"><span>Cliente</span><input id="project-client" maxLength={120} value={input.project.cliente} onChange={(event) => setInput((current) => ({ ...current, project: { ...current.project, cliente: event.target.value } }))} /></label>
-                  <label className="field" htmlFor="project-owner"><span>Responsável técnico</span><input id="project-owner" maxLength={120} value={input.project.responsavel} onChange={(event) => setInput((current) => ({ ...current, project: { ...current.project, responsavel: event.target.value } }))} /></label>
-                  <label className="field" htmlFor="project-date"><span>Data do projeto</span><input id="project-date" type="date" value={input.project.data} onChange={(event) => setInput((current) => ({ ...current, project: { ...current.project, data: event.target.value } }))} /></label>
+                  <label className="field" htmlFor="project-name"><span>Projeto</span><input id="project-name" maxLength={120} value={input.project.nome} onChange={(event) => setCalculationInput((current) => ({ ...current, project: { ...current.project, nome: event.target.value } }))} /></label>
+                  <label className="field" htmlFor="project-client"><span>Cliente</span><input id="project-client" maxLength={120} value={input.project.cliente} onChange={(event) => setCalculationInput((current) => ({ ...current, project: { ...current.project, cliente: event.target.value } }))} /></label>
+                  <label className="field" htmlFor="project-owner"><span>Responsável técnico</span><input id="project-owner" maxLength={120} value={input.project.responsavel} onChange={(event) => setCalculationInput((current) => ({ ...current, project: { ...current.project, responsavel: event.target.value } }))} /></label>
+                  <label className="field" htmlFor="project-date"><span>Data do projeto</span><input id="project-date" type="date" value={input.project.data} onChange={(event) => setCalculationInput((current) => ({ ...current, project: { ...current.project, data: event.target.value } }))} /></label>
                 </div>
               </details>
             </section>
           </div>
 
           <aside className="result-column" id="step-4">
-            <section className={`verdict ${isCalculating ? 'pending' : result.approved ? 'approved' : 'rejected'}`}>
-              <div className="verdict-icon">{isCalculating ? <Gauge size={28} /> : result.approved ? <Check size={28} /> : <X size={28} />}</div>
-              <div><span>Veredito hidráulico</span><h2>{isCalculating ? 'Calculando no servidor' : result.approved ? 'A seção atende' : 'A seção não atende'}</h2><p>{isCalculating ? 'Aguardando resposta da API.' : result.approved ? `Margem hidráulica de ${format(result.margin, 1)}%.` : 'A capacidade é inferior à vazão de projeto.'}</p></div>
+            <section className={`verdict ${isCalculating || !hasCurrentResult ? 'pending' : displayedResult.approved ? 'approved' : 'rejected'}`}>
+              <div className="verdict-icon">{isCalculating || !hasCurrentResult ? <Gauge size={28} /> : displayedResult.approved ? <Check size={28} /> : <X size={28} />}</div>
+              <div><span>Veredito hidráulico</span><h2>{isCalculating ? 'Calculando no servidor' : !hasCurrentResult ? 'Cálculo pendente' : displayedResult.approved ? 'A seção atende' : 'A seção não atende'}</h2><p>{isCalculating ? 'Aguardando resposta da API.' : !hasCurrentResult ? 'Informe a intensidade manual e clique em Calcular.' : displayedResult.approved ? `Margem hidráulica de ${format(displayedResult.margin, 1)}%.` : 'A capacidade é inferior à vazão de projeto.'}</p></div>
             </section>
 
             <div className="metric-grid">
-              <article><span>Vazão de projeto</span><strong>{format(result.designFlow)}</strong><small>L/min</small></article>
-              <article><span>Capacidade</span><strong>{format(result.capacity)}</strong><small>L/min</small></article>
-              <article><span>Ocupação</span><strong>{format(result.utilization, 1)}</strong><small>%</small></article>
-              <article><span>Velocidade</span><strong>{format(result.velocity)}</strong><small>m/s</small></article>
+              <article><span>Vazão de projeto</span><strong>{hasCurrentResult ? format(displayedResult.designFlow) : '—'}</strong><small>L/min</small></article>
+              <article><span>Capacidade</span><strong>{hasCurrentResult ? format(displayedResult.capacity) : '—'}</strong><small>L/min</small></article>
+              <article><span>Ocupação</span><strong>{hasCurrentResult ? format(displayedResult.utilization, 1) : '—'}</strong><small>%</small></article>
+              <article><span>Velocidade</span><strong>{hasCurrentResult ? format(displayedResult.velocity) : '—'}</strong><small>m/s</small></article>
             </div>
 
-            {mode === 'dimensionar' && result.dimensioning && (
+            {hasCurrentResult && mode === 'dimensionar' && displayedResult.dimensioning && (
               <section className="memory-section dimension-result">
                 <header><div><span>Dimensionamento pelo servidor</span><h2>Dimensão mínima calculada</h2></div><Ruler size={20} /></header>
-                <p>{result.dimensioning.mensagem ?? `Lâmina mínima: ${format(result.dimensioning.laminaMm, 0)} mm`}</p>
-                {result.dimensioning.diametroMm !== null && <p>Diâmetro interno: {format(result.dimensioning.diametroMm, 0)} mm</p>}
-                {result.dimensioning.larguraFundoMm !== null && <p>Largura de fundo fixa: {format(result.dimensioning.larguraFundoMm, 0)} mm</p>}
-                <p>Capacidade: {format(result.dimensioning.capacidadeLmin)} L/min; passo construtivo: {format(result.dimensioning.passoConstrutivoMm, 0)} mm.</p>
+                <p>{displayedResult.dimensioning.mensagem ?? `Lâmina mínima: ${format(displayedResult.dimensioning.laminaMm, 0)} mm`}</p>
+                {displayedResult.dimensioning.diametroMm !== null && <p>Diâmetro interno: {format(displayedResult.dimensioning.diametroMm, 0)} mm</p>}
+                {displayedResult.dimensioning.larguraFundoMm !== null && <p>Largura de fundo fixa: {format(displayedResult.dimensioning.larguraFundoMm, 0)} mm</p>}
+                <p>Capacidade: {format(displayedResult.dimensioning.capacidadeLmin)} L/min; passo construtivo: {format(displayedResult.dimensioning.passoConstrutivoMm, 0)} mm.</p>
               </section>
             )}
 
             <section className="visual-section">
               <header><div><span>Seção hidráulica</span><h2>{profileLabels[input.profile]}</h2></div><span className="scale-tag">esquemático</span></header>
-              <SectionDiagram input={input} result={result} />
+              <SectionDiagram input={input} result={displayedResult} />
               <div className="hydraulic-data">
-                <span><small>Área molhada</small><strong>{format(result.wetArea, 4)} m²</strong></span>
-                <span><small>Perímetro</small><strong>{format(result.wetPerimeter, 3)} m</strong></span>
-                <span><small>Altura total</small><strong>{format(result.totalHeightMm, 0)} mm</strong></span>
+                <span><small>Área molhada</small><strong>{hasCurrentResult ? format(displayedResult.wetArea, 4) : '—'} m²</strong></span>
+                <span><small>Perímetro</small><strong>{hasCurrentResult ? format(displayedResult.wetPerimeter, 3) : '—'} m</strong></span>
+                <span><small>Altura total</small><strong>{hasCurrentResult ? format(displayedResult.totalHeightMm, 0) : '—'} mm</strong></span>
               </div>
             </section>
 
-            {result.warnings.length > 0 && (
-              <section className="warnings-panel"><h3><AlertTriangle size={17} /> Pontos de atenção</h3>{result.warnings.map((warning) => <p key={warning}>{warning}</p>)}</section>
+            {hasCurrentResult && displayedResult.warnings.length > 0 && (
+              <section className="warnings-panel"><h3><AlertTriangle size={17} /> Pontos de atenção</h3>{displayedResult.warnings.map((warning) => <p key={warning}>{warning}</p>)}</section>
             )}
 
             <section className="memory-section">
               <header><div><span>Memória do servidor</span><h2>Rastreabilidade do cálculo</h2></div><BookOpen size={20} /></header>
               <ol>
-                {result.steps.map((step) => (
+                {displayedResult.steps.map((step) => (
                   <li key={step.ordem}>
                     <span>{String(step.ordem).padStart(2, '0')}</span>
                     <p><strong>{step.titulo}</strong>{step.referenciaNorma}<br />{step.formulaTexto}<br />{step.substituicao} = {typeof step.resultado === 'number' ? format(step.resultado, 3) : step.resultado} {step.unidade}</p>

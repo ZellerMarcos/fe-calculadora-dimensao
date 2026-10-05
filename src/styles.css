@@ -101,6 +101,8 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
 .field select, .input-shell { width: 100%; height: 40px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 3px; }
 .field select { padding: 0 10px; text-transform: none; font-size: 12px; letter-spacing: 0; }
+.field > input { width: 100%; height: 40px; padding: 0 10px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 3px; font-size: 12px; font-weight: 500; text-transform: none; letter-spacing: 0; }
+.field > input:focus { outline: 2px solid color-mix(in srgb, var(--teal) 28%, transparent); border-color: var(--teal); }
 .input-shell { display: flex; align-items: center; overflow: hidden; }
 .input-shell input { width: 100%; min-width: 0; height: 100%; padding: 0 10px; color: var(--ink); background: transparent; border: 0; outline: 0; font: 600 13px "IBM Plex Mono", monospace; }
 .input-shell:focus-within, .field select:focus { outline: 2px solid color-mix(in srgb, var(--teal) 28%, transparent); border-color: var(--teal); }
@@ -110,6 +112,7 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .source-options button.selected { color: var(--teal-dark); background: var(--teal-soft); border-color: var(--teal); }
 .inline-alert { display: flex; align-items: flex-start; gap: 8px; padding: 9px 10px; margin-top: 8px; color: var(--amber); background: var(--amber-soft); border-left: 3px solid var(--amber); font-size: 11px; line-height: 1.45; }
 .inline-alert.danger { color: var(--red); background: var(--red-soft); border-color: var(--red); }
+.manual-calc-action { display: flex; justify-content: flex-end; margin-top: -4px; }
 .formula-line { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 11px 12px; color: var(--muted); background: var(--surface-2); border-left: 3px solid var(--teal); font: 500 11px "IBM Plex Mono", monospace; }
 .formula-line strong { color: var(--teal-dark); text-align: right; }
 
