@@ -13,6 +13,8 @@ npm run dev
 
 O Vite disponibiliza a aplicação em `http://localhost:5173`.
 
+O `.env` local usa o proxy do Vite, que encaminha as chamadas para `http://127.0.0.1:8000`; o backend deve estar iniciado. No Render, configure `VITE_API_BASE_URL` nas variáveis de ambiente do serviço frontend com a URL pública do backend mais `/api/v1/nbr10844` (por exemplo, `https://seu-backend.onrender.com/api/v1/nbr10844`). Como é uma variável Vite, ela precisa estar definida durante o build. Os arquivos `.env` locais não são publicados.
+
 ## Validação
 
 ```bash
